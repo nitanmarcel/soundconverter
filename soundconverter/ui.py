@@ -93,6 +93,24 @@ class ErrorDialog:
         self.dialog.run()
         self.dialog.hide()
 
+class WarningDialog:
+    def __init__(self, builder):
+        self.dialog = builder.get_object('error_dialog')
+        self.dialog.set_transient_for(builder.get_object('window'))
+        self.primary = builder.get_object('primary_error_label')
+        self.secondary = builder.get_object('secondary_error_label')
+        self.dialog.set_title('Warning')
+
+    def show_warning(self, primary, secondary):
+        self.primary.set_markup(primary)
+        self.secondary.set_markup(secondary)
+        try:
+            sys.stdout.write(_('\Warning: %s\n%s\n') % (primary, secondary))
+        except:
+            pass
+        self.dialog.run()
+        self.dialog.hide()
+
 
 class MsgAreaErrorDialog_:
 
@@ -124,6 +142,7 @@ class FileList:
 
     def __init__(self, window, builder):
         self.window = window
+        self.dialog =  WarningDialog(builder)
         self.typefinders = TaskQueue()
         self.filelist = set()
 
@@ -197,6 +216,7 @@ class FileList:
     @idle
     def add_uris(self, uris, base=None, extensions=None):
         files = []
+        ignored_files = [   ]
         #self.window.set_status(_('Scanning files...'))
 
         for uri in uris:
@@ -208,7 +228,7 @@ class FileList:
                 return
             info = Gio.file_parse_name(uri).query_file_type(Gio.FileMonitorFlags.NONE, None)
             if info == Gio.FileType.DIRECTORY:
-                log('walking: \'%s\'' % uri)
+                log('wallking: \'%s\'' % uri)
                 if len(uris) == 1:
                     # if only one folder is passed to the function,
                     # use its parent as base path.
@@ -219,13 +239,32 @@ class FileList:
                     for f in filelist:
                         for extension in extensions:
                             if f.lower().endswith(extension):
-                                accepted.append(f)
+                                file_size = os.path.getsize(f)
+                                if file_size > 2 * 1024 * 1024 * 1024:
+                                    ignored_files.append(f)
+                                else:
+                                    accepted.append(f)
                     filelist = accepted
                 files.extend(filelist)
             else:
-                files.append(uri)
-
+                file_size = os.path.getsize(uri.replace('file://', ''))
+                if file_size > 2 * 1024 * 1024 * 1024:
+                    ignored_files.append(uri)
+                else:
+                    files.append(uri)
+        
         files = [f for f in files if not f.endswith('~SC~')]
+        new_files = []
+        for f in files:
+            file_size = os.path.getsize(f.replace('file://', ''))
+            if file_size > 2 * 1024 * 1024 * 1024:
+                ignored_files.append(f)
+            else:
+                new_files.append(f)
+
+        files = new_files
+        if ignored_files:
+            self.dialog.show_warning('Ignored too big files (2GB+)', "\n".join([f.replace('file://', '') for f in ignored_files]))
 
         if not base:
             base = os.path.commonprefix(files)
