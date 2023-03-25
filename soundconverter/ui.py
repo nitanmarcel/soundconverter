@@ -19,6 +19,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 # USA
 
+import mimetypes
 import os
 from os.path import basename, dirname
 from random import random
@@ -45,6 +46,7 @@ from soundconverter.namegenerator import TargetNameGenerator
 from soundconverter.queue import TaskQueue
 from soundconverter.utils import log, debug, idle
 from soundconverter.error import show_error
+from urllib.parse import urlparse
 
 # Names of columns in the file list
 MODEL = [ GObject.TYPE_STRING,   # visible filename
@@ -61,6 +63,7 @@ COLUMNS = ['filename']
 
 MP3_CBR, MP3_ABR, MP3_VBR = list(range(3))
 
+mimetypes.init()
 
 def gtk_iteration():
     while Gtk.events_pending():
@@ -239,16 +242,30 @@ class FileList:
                     for f in filelist:
                         for extension in extensions:
                             if f.lower().endswith(extension):
-                                file_size = os.path.getsize(f)
-                                if file_size > 2 * 1024 * 1024 * 1024:
+                                p = urlparse(uri)
+                                final_path = os.path.abspath(os.path.join(p.netloc, p.path))
+                                file_size = os.path.getsize(final_path)
+                                mime = mimetypes.guess_type(final_path)
+                                if not mime[0]:
+                                    mime = 'audio'
+                                else:
+                                    mime = mime[0].split('/')[0]
+                                if file_size > 2 * 1024 * 1024 * 1024 and mime == 'audio':
                                     ignored_files.append(f)
                                 else:
                                     accepted.append(f)
                     filelist = accepted
                 files.extend(filelist)
             else:
-                file_size = os.path.getsize(uri.replace('file://', ''))
-                if file_size > 2 * 1024 * 1024 * 1024:
+                p = urlparse(uri)
+                final_path = os.path.abspath(os.path.join(p.netloc, p.path))
+                file_size = os.path.getsize(final_path)
+                mime = mimetypes.guess_type(final_path)
+                if not mime[0]:
+                    mime = 'audio'
+                else:
+                    mime = mime[0].split('/')[0]
+                if file_size > 2 * 1024 * 1024 * 1024 and mime == 'audio':
                     ignored_files.append(uri)
                 else:
                     files.append(uri)
@@ -256,15 +273,22 @@ class FileList:
         files = [f for f in files if not f.endswith('~SC~')]
         new_files = []
         for f in files:
-            file_size = os.path.getsize(f.replace('file://', ''))
-            if file_size > 2 * 1024 * 1024 * 1024:
+            p = urlparse(uri)
+            final_path = os.path.abspath(os.path.join(p.netloc, p.path))
+            file_size = os.path.getsize(final_path)
+            mime = mimetypes.guess_type(final_path)
+            if not mime[0]:
+                mime = 'audio'
+            else:
+                mime = mime[0].split('/')[0]
+            if file_size > 2 * 1024 * 1024 * 1024 and mime == 'audio':
                 ignored_files.append(f)
             else:
                 new_files.append(f)
 
         files = new_files
         if ignored_files:
-            self.dialog.show_warning('Ignored too big files (2GB+)', "\n".join([f.replace('file://', '') for f in ignored_files]))
+            self.dialog.show_warning('One or more audio files weren\'t imported because of the size (> 2GB)', "\n".join([f.replace('file://', '') for f in ignored_files]))
 
         if not base:
             base = os.path.commonprefix(files)
