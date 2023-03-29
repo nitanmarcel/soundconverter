@@ -46,7 +46,6 @@ from soundconverter.namegenerator import TargetNameGenerator
 from soundconverter.queue import TaskQueue
 from soundconverter.utils import log, debug, idle
 from soundconverter.error import show_error
-from urllib.parse import urlparse
 
 # Names of columns in the file list
 MODEL = [ GObject.TYPE_STRING,   # visible filename
@@ -219,7 +218,7 @@ class FileList:
     @idle
     def add_uris(self, uris, base=None, extensions=None):
         files = []
-        ignored_files = [   ]
+        ignored_files = [ ]
         #self.window.set_status(_('Scanning files...'))
 
         for uri in uris:
@@ -242,8 +241,7 @@ class FileList:
                     for f in filelist:
                         for extension in extensions:
                             if f.lower().endswith(extension):
-                                p = urlparse(uri)
-                                final_path = os.path.abspath(os.path.join(p.netloc, p.path))
+                                final_path = urllib.parse.unquote(uri.replace('file://', ''))
                                 file_size = os.path.getsize(final_path)
                                 mime = mimetypes.guess_type(final_path)
                                 if not mime[0]:
@@ -257,8 +255,7 @@ class FileList:
                     filelist = accepted
                 files.extend(filelist)
             else:
-                p = urlparse(uri)
-                final_path = os.path.abspath(os.path.join(p.netloc, p.path))
+                final_path = urllib.parse.unquote(uri.replace('file://', ''))
                 file_size = os.path.getsize(final_path)
                 mime = mimetypes.guess_type(final_path)
                 if not mime[0]:
@@ -273,8 +270,7 @@ class FileList:
         files = [f for f in files if not f.endswith('~SC~')]
         new_files = []
         for f in files:
-            p = urlparse(uri)
-            final_path = os.path.abspath(os.path.join(p.netloc, p.path))
+            final_path = urllib.parse.unquote(uri.replace('file://', ''))
             file_size = os.path.getsize(final_path)
             mime = mimetypes.guess_type(final_path)
             if not mime[0]:
