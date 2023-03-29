@@ -270,7 +270,7 @@ class FileList:
         files = [f for f in files if not f.endswith('~SC~')]
         new_files = []
         for f in files:
-            final_path = urllib.parse.unquote(uri.replace('file://', ''))
+            final_path = urllib.parse.unquote(f.replace('file://', ''))
             file_size = os.path.getsize(final_path)
             mime = mimetypes.guess_type(final_path)
             if not mime[0]:
