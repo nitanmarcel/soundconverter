@@ -414,6 +414,7 @@ class GladeWindow(object):
     def connect_signals():
         """Connect all GladeWindow objects to theirs respective signals"""
         GladeWindow.builder.connect_signals(GladeWindow.callbacks)
+        
 
 
 class PreferencesDialog(GladeWindow, GConfStore):
@@ -1221,6 +1222,8 @@ class SoundConverterWindow(GladeWindow):
         self.addchooser = CustomFileChooser(builder, self.widget)
         GladeWindow.connect_signals()
 
+        self.widget.set_size_request(800, 400)
+
         self.filelist = FileList(self, builder)
         self.filelist_selection = self.filelist.widget.get_selection()
         self.filelist_selection.connect('changed', self.selection_changed)
@@ -1565,6 +1568,7 @@ def gui_main(name, version, gladefile, input_files):
     #error.set_error_handler(error_dialog)
 
     #GObject.idle_add(win.filelist.add_uris, input_files)
+
     win.filelist.add_uris(input_files)
     win.set_sensitive()
     Gtk.main()
