@@ -469,11 +469,13 @@ class PreferencesDialog(GladeWindow, GConfStore):
                        'force_mono']
 
     def __init__(self, builder, parent):
+        self.builder = builder
         GladeWindow.__init__(self, builder)
         GConfStore.__init__(self, '/apps/SoundConverter', self.defaults)
 
         self.dialog = builder.get_object('prefsdialog')
         self.dialog.set_transient_for(parent)
+        self.wdialog = WarningDialog(builder)
         self.example = builder.get_object('example_filename')
         self.force_mono = builder.get_object('force_mono')
 
@@ -538,6 +540,9 @@ class PreferencesDialog(GladeWindow, GConfStore):
 
         if self.get_int('delete-original'):
             self.delete_original.set_active(True)
+        else:
+            delete_warning_button = self.builder.get_object("delete_warning_button")
+            delete_warning_button.set_sensitive(False)
 
         mime_type = self.get_string('output-mime-type')
 
@@ -850,10 +855,14 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.dialog.hide()
 
     def on_delete_original_toggled(self, button):
+        delete_warning_button = self.builder.get_object("delete_warning_button")
         if button.get_active():
             self.set_int('delete-original', 1)
+            self.wdialog.show_warning('', 'Deleting original file is potentially destructive, \nMainly if the conversion is towards some lossy format.')
+            delete_warning_button.set_sensitive(True)
         else:
             self.set_int('delete-original', 0)
+            delete_warning_button.set_sensitive(False)
 
     def on_same_folder_as_input_toggled(self, button):
         if button.get_active():
