@@ -544,6 +544,8 @@ class PreferencesDialog(GladeWindow, GConfStore):
         else:
             delete_warning_button = self.builder.get_object("delete_warning_button")
             delete_warning_button.set_sensitive(False)
+            delete_warning_button.set_stock_id('gtk-ok')
+            delete_warning_button.set_label('Preserve original file')
 
         mime_type = self.get_string('output-mime-type')
 
@@ -861,9 +863,13 @@ class PreferencesDialog(GladeWindow, GConfStore):
             self.set_int('delete-original', 1)
             self.wdialog.show_warning('', 'Deleting original file is potentially destructive, \nMainly if the conversion is towards some lossy format.')
             delete_warning_button.set_sensitive(True)
+            delete_warning_button.set_stock_id('gtk-dialog-error')
+            delete_warning_button.set_label('Delete original file')
         else:
             self.set_int('delete-original', 0)
             delete_warning_button.set_sensitive(False)
+            delete_warning_button.set_stock_id('gtk-ok')
+            delete_warning_button.set_label('Preserve original file')
 
     def on_same_folder_as_input_toggled(self, button):
         if button.get_active():
