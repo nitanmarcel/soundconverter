@@ -862,7 +862,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
         delete_warning_button = self.builder.get_object("delete_warning_button")
         if button.get_active():
             self.set_int('delete-original', 1)
-            self.wdialog.show_warning('', 'Deleting original file is potentially destructive, \nMainly if the conversion is towards some lossy format.')
+            self.wdialog.show_warning('', 'Deleting the original file is potentially destructive, mainly if the conversion is towards a lossy format.')
             delete_warning_button.set_sensitive(True)
             delete_warning_button.set_stock_id('gtk-dialog-error')
             delete_warning_button.set_label('Delete original file')

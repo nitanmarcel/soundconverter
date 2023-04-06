@@ -806,7 +806,7 @@ Gautier Portet</property>
                 <property name="can_focus">False</property>
                 <property name="is_important">True</property>
                 <property name="stock_id">gtk-dialog-error</property>
-                <property name="tooltip_text" translatable="yes">Deleting original file is potentially destructive, Mainly if the conversion is towards some lossy format.</property>
+                <property name="tooltip_text" translatable="yes">Deleting the original file is potentially destructive, mainly if the conversion is towards a lossy format.</property>
               </object>
               <packing>
                 <property name="expand">False</property>
