@@ -538,9 +538,10 @@ class PreferencesDialog(GladeWindow, GConfStore):
         if self.get_int('replace-messy-chars'):
             w = self.replace_messy_chars
             w.set_active(True)
+        self.set_int('delete-original', 0)
 
         if self.get_int('delete-original'):
-            self.delete_original.set_active(True)
+            self.delete_original.set_active(False)
         else:
             delete_warning_button = self.builder.get_object("delete_warning_button")
             delete_warning_button.set_sensitive(False)
