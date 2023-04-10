@@ -859,9 +859,6 @@ class PreferencesDialog(GladeWindow, GConfStore):
 
     def on_delete_warning_button_clicked(self, button):
         self.set_int('delete-original', 0 if self.get_int('delete-original') else 1 )
-        self.on_delete_original_toggled(button)
-
-    def on_delete_original_toggled(self, button):
         delete_warning_button = self.builder.get_object("delete_warning_button")
         if self.get_int('delete-original'):
             self.set_int('delete-original', 1)
@@ -872,7 +869,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
             self.set_int('delete-original', 0)
             delete_warning_button.set_stock_id('gtk-ok')
             delete_warning_button.set_label('Preserve original file')
-
+            
     def on_same_folder_as_input_toggled(self, button):
         if button.get_active():
             self.set_int('same-folder-as-input', 1)
