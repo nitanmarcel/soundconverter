@@ -34,7 +34,6 @@ from gi.repository import Gio
 from gi.repository import Gdk
 from gi.repository import GLib
 
-from soundconverter.gconfstore import GConfStore
 from soundconverter.fileoperations import filename_to_uri, beautify_uri
 from soundconverter.fileoperations import unquote_filename, vfs_walk, vfs_exists
 from soundconverter.gstreamer import ConverterQueue
@@ -417,7 +416,7 @@ class GladeWindow(object):
         
 
 
-class PreferencesDialog(GladeWindow, GConfStore):
+class PreferencesDialog(GladeWindow):
 
     basename_patterns = [
         ('%(.inputname)s', _('Same as input, but replacing the suffix')),
@@ -435,44 +434,14 @@ class PreferencesDialog(GladeWindow, GConfStore):
         ('%(artist)s - %(album)s', _('artist - album')),
     ]
 
-    defaults = {
-        'same-folder-as-input': 1,
-        'selected-folder': os.path.expanduser('~'),
-        'create-subfolders': 0,
-        'subfolder-pattern-index': 0,
-        'name-pattern-index': 0,
-        'custom-filename-pattern': '{Track} - {Title}',
-        'replace-messy-chars': 0,
-        'output-mime-type': 'audio/x-vorbis',
-        'output-suffix': '.ogg',
-        'vorbis-quality': 0.6,
-        'vorbis-oga-extension': 0,
-        'mp3-mode': 'vbr',
-        'mp3-cbr-quality': 192,
-        'mp3-abr-quality': 192,
-        'mp3-vbr-quality': 3,
-        'aac-quality': 192,
-        'opus-bitrate': 96,
-        'flac-compression': 8,
-        'wav-sample-width': 16,
-        'delete-original': 0,
-        'output-resample': 0,
-        'resample-rate': 48000,
-        'force-mono': 0,
-        'last-used-folder': None,
-        'audio-profile': None,
-        'limit-jobs': 0,
-        'number-of-jobs': 1,
-    }
-
     sensitive_names = ['vorbis_quality', 'choose_folder', 'create_subfolders',
                        'subfolder_pattern', 'jobs_spinbutton', 'resample_hbox',
                        'force_mono']
 
     def __init__(self, builder, parent):
         self.builder = builder
+        self.settings = Gio.Settings('org.soundconverter')
         GladeWindow.__init__(self, builder)
-        GConfStore.__init__(self, '/apps/SoundConverter', self.defaults)
 
         self.dialog = builder.get_object('prefsdialog')
         self.dialog.set_transient_for(parent)
@@ -481,7 +450,6 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.force_mono = builder.get_object('force_mono')
 
         self.target_bitrate = None
-        self.convert_setting_from_old_version()
 
         self.sensitive_widgets = {}
         for name in self.sensitive_names:
@@ -497,37 +465,25 @@ class PreferencesDialog(GladeWindow, GConfStore):
         
         #self.resample_rate.connect('changed', self._on_resample_rate_changed)
 
-    def convert_setting_from_old_version(self):
-        """ try to convert previous settings"""
-
-        # vorbis quality was once stored as an int enum
-        try:
-            self.get_float('vorbis-quality')
-        except GObject.GError:
-            log('deleting old settings...')
-            [self.gconf.unset(self.path(k)) for k in list(self.defaults.keys())]
-
-        self.gconf.clear_cache()
-
     def set_widget_initial_values(self, builder):
 
         self.quality_tabs.set_show_tabs(False)
 
-        if self.get_int('same-folder-as-input'):
+        if self.settings.get_int('same-folder-as-input'):
             w = self.same_folder_as_input
         else:
             w = self.into_selected_folder
         w.set_active(True)
 
-        uri = filename_to_uri(self.get_string('selected-folder'))
+        uri = filename_to_uri(self.settings.get_string('selected-folder'))
         self.target_folder_chooser.set_uri(uri)
         self.update_selected_folder()
 
         w = self.create_subfolders
-        w.set_active(self.get_int('create-subfolders'))
+        w.set_active(self.settings.get_int('create-subfolders'))
 
         w = self.subfolder_pattern
-        active = self.get_int('subfolder-pattern-index')
+        active = self.settings.get_int('subfolder-pattern-index')
         model = w.get_model()
         model.clear()
         for pattern, desc in self.subfolder_patterns:
@@ -535,19 +491,19 @@ class PreferencesDialog(GladeWindow, GConfStore):
             model.set(i, 0, desc)
         w.set_active(active)
 
-        if self.get_int('replace-messy-chars'):
+        if self.settings.get_boolean('replace-messy-chars'):
             w = self.replace_messy_chars
             w.set_active(True)
         self.set_int('delete-original', 0)
 
-        if self.get_int('delete-original'):
+        if self.settings.get_boolean('delete-original'):
             self.delete_original.set_active(False)
         else:
             delete_warning_button = self.builder.get_object("delete_warning_button")
             delete_warning_button.set_stock_id('gtk-ok')
             delete_warning_button.set_label('Preserve original file')
 
-        mime_type = self.get_string('output-mime-type')
+        mime_type = self.settings.get_string('output-mime-type')
 
         widgets = ( ('audio/x-vorbis', 'vorbisenc'),
                     ('audio/mpeg'    , 'lamemp3enc'),
@@ -573,7 +529,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
             
         # check if we can found the stored audio profile
         found_profile = False
-        stored_profile = self.get_string('audio-profile')
+        stored_profile = self.settings.get_string('audio-profile')
         for i, profile in enumerate(audio_profiles_list):
             description, extension, pipeline = profile
             self.gstprofile.get_model().append(['%s (.%s)' % (description, extension)])
@@ -617,43 +573,43 @@ class PreferencesDialog(GladeWindow, GConfStore):
             w.show()
 
         w = self.vorbis_quality
-        quality = self.get_float('vorbis-quality')
+        quality = self.settings.get_double('vorbis-quality')
         quality_setting = {0: 0, 0.2: 1, 0.4: 2, 0.6: 3, 0.8: 4, 1.0: 5}
         w.set_active(-1)
         for k, v in quality_setting.items():
             if abs(quality - k) < 0.01:
                 self.vorbis_quality.set_active(v)
-        if self.get_int('vorbis-oga-extension'):
+        if self.settings.get_boolean('vorbis-oga-extension'):
             self.vorbis_oga_extension.set_active(True)
 
         w = self.aac_quality
-        quality = self.get_int('aac-quality')
+        quality = self.settings.get_int('aac-quality')
         quality_setting = {64: 0, 96: 1, 128: 2, 192: 3, 256: 4, 320: 5}
         w.set_active(quality_setting.get(quality, -1))
 
         w = self.opus_quality
-        quality = self.get_int('opus-bitrate')
+        quality = self.settings.get_int('opus-bitrate')
         quality_setting = {48: 0, 64: 1, 96: 2, 128: 3, 160: 4, 192: 5}
         w.set_active(quality_setting.get(quality, -1))
 
         w = self.flac_compression
-        quality = self.get_int('flac-compression')
+        quality = self.settings.get_int('flac-compression')
         quality_setting = {0: 0, 5: 1, 8: 2}
         w.set_active(quality_setting.get(quality, -1))
 
         w = self.wav_sample_width
-        quality = self.get_int('wav-sample-width')
+        quality = self.settings.get_int('wav-sample-width')
         quality_setting = {8: 0, 16: 1, 32: 2}
         w.set_active(quality_setting.get(quality, -1))
 
         self.mp3_quality = self.mp3_quality
         self.mp3_mode = self.mp3_mode
 
-        mode = self.get_string('mp3-mode')
+        mode = self.settings.get_string('mp3-mode')
         self.change_mp3_mode(mode)
 
         w = self.basename_pattern
-        active = self.get_int('name-pattern-index')
+        active = self.settings.get_int('name-pattern-index')
         model = w.get_model()
         model.clear()
         for pattern, desc in self.basename_patterns:
@@ -661,7 +617,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
             model.set(iter, 0, desc)
         w.set_active(active)
 
-        self.custom_filename.set_text(self.get_string(
+        self.custom_filename.set_text(self.settings.get_string(
                                                     'custom-filename-pattern'))
         if self.basename_pattern.get_active() == len(self.basename_patterns)-1:
             self.custom_filename_box.set_sensitive(True)
@@ -669,23 +625,23 @@ class PreferencesDialog(GladeWindow, GConfStore):
             self.custom_filename_box.set_sensitive(False)
 
         
-        self.resample_toggle.set_active(self.get_int('output-resample'))
+        self.resample_toggle.set_active(self.settings.get_boolean('output-resample'))
 
         cell = Gtk.CellRendererText()
         self.resample_rate.pack_start(cell, True)
         self.resample_rate.add_attribute(cell, 'text', 0)
         rates = [8000, 11025, 22050, 44100, 48000, 96000]
-        rate = self.get_int('resample-rate')
+        rate = self.settings.get_int('resample-rate')
         try:
             idx = rates.index(rate)
         except ValueError:
             idx = -1
         self.resample_rate.set_active(idx)
         
-        self.force_mono.set_active(self.get_int('force-mono'))
+        self.force_mono.set_active(self.settings.get_boolean('force-mono'))
 
-        self.jobs.set_active(self.get_int('limit-jobs'))
-        self.jobs_spinbutton.set_value(self.get_int('number-of-jobs'))
+        self.jobs.set_active(self.settings.get_int('limit-jobs'))
+        self.jobs_spinbutton.set_value(self.settings.get_int('number-of-jobs'))
 
         self.update_jobs()
         self.update_example()
@@ -693,26 +649,26 @@ class PreferencesDialog(GladeWindow, GConfStore):
     def update_selected_folder(self):
         self.into_selected_folder.set_use_underline(False)
         self.into_selected_folder.set_label(_('Into folder %s') %
-            beautify_uri(self.get_string('selected-folder')))
+            beautify_uri(self.settings.get_string('selected-folder')))
 
     def get_bitrate_from_settings(self):
         bitrate = 0
         aprox = True
-        mode = self.get_string('mp3-mode')
+        mode = self.settings.get_string('mp3-mode')
 
-        mime_type = self.get_string('output-mime-type')
+        mime_type = self.settings.get_string('output-mime-type')
 
         if mime_type == 'audio/x-vorbis':
-            quality = self.get_float('vorbis-quality')*10
+            quality = self.settings.get_double('vorbis-quality')*10
             quality = int(quality)
             bitrates = (64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 500)
             bitrate = bitrates[quality]
 
         elif mime_type == 'audio/x-m4a':
-            bitrate = self.get_int('aac-quality')
+            bitrate = self.settings.get_int('aac-quality')
 
         elif mime_type == 'audio/ogg; codecs=opus':
-            bitrate = self.get_int('opus-bitrate')
+            bitrate = self.settings.get_int('opus-bitrate')
 
         elif mime_type == 'audio/mpeg':
             quality = {
@@ -720,7 +676,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
                 'abr': 'mp3-abr-quality',
                 'vbr': 'mp3-vbr-quality'
             }
-            bitrate = self.get_int(quality[mode])
+            bitrate = self.settings.get_int(quality[mode])
             if mode == 'vbr':
                 # hum, not really, but who cares? :)
                 bitrates = (320, 256, 224, 192, 160, 128, 112, 96, 80, 64)
@@ -778,8 +734,8 @@ class PreferencesDialog(GladeWindow, GConfStore):
 
     def get_output_suffix(self):
         self.gconf.clear_cache()
-        output_type = self.get_string('output-mime-type')
-        profile = self.get_string('audio-profile')
+        output_type = self.settings.get_string('output-mime-type')
+        profile = self.settings.get_string('audio-profile')
         profile_ext = audio_profiles_dict[profile][1] if profile else ''
         output_suffix = {
                 'audio/x-vorbis': '.ogg',
@@ -790,7 +746,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
                 'audio/ogg; codecs=opus': '.opus',
                 'gst-profile': '.' + profile_ext,
         }.get(output_type, '.?')
-        if output_suffix == '.ogg' and self.get_int('vorbis-oga-extension'):
+        if output_suffix == '.ogg' and self.settings.get_boolean('vorbis-oga-extension'):
             output_suffix = '.oga'
         return output_suffix
 
@@ -798,12 +754,12 @@ class PreferencesDialog(GladeWindow, GConfStore):
         generator = TargetNameGenerator()
         generator.suffix = self.get_output_suffix()
 
-        if not self.get_int('same-folder-as-input'):
-            folder = self.get_string('selected-folder')
+        if not self.settings.get_boolean('same-folder-as-input'):
+            folder = self.settings.get_string('selected-folder')
             folder = filename_to_uri(folder)
             generator.folder = folder
 
-            if self.get_int('create-subfolders'):
+            if self.settings.get_boolean('create-subfolders'):
                 generator.subfolders = self.get_subfolder_pattern()
 
         generator.basename = self.get_basename_pattern()
@@ -812,13 +768,13 @@ class PreferencesDialog(GladeWindow, GConfStore):
             generator.replace_messy_chars = False
             return unquote_filename(generator.get_target_name(sound_file))
         else:
-            generator.replace_messy_chars = self.get_int('replace-messy-chars')
+            generator.replace_messy_chars = self.settings.get_int('replace-messy-chars')
             return generator.get_target_name(sound_file)
 
     def generate_temp_filename(self, soundfile):
         folder = dirname(soundfile.uri)
-        if not self.get_int('same-folder-as-input'):
-            folder = self.get_string('selected-folder')
+        if not self.settings.get_boolean('same-folder-as-input'):
+            folder = self.settings.get_string('selected-folder')
             folder = filename_to_uri(folder)
         while True:
             filename = folder + '/' + basename(soundfile.filename) + '~' + str(random())[-6:] + '~SC~'
@@ -834,18 +790,18 @@ class PreferencesDialog(GladeWindow, GConfStore):
         for widget in list(self.sensitive_widgets.values()):
             widget.set_sensitive(False)
 
-        x = self.get_int('same-folder-as-input')
+        x = self.settings.get_boolean('same-folder-as-input')
         for name in ['choose_folder', 'create_subfolders',
                      'subfolder_pattern']:
             self.sensitive_widgets[name].set_sensitive(not x)
 
         self.sensitive_widgets['vorbis_quality'].set_sensitive(
-            self.get_string('output-mime-type') == 'audio/x-vorbis')
+            self.settings.get_string('output-mime-type') == 'audio/x-vorbis')
 
         self.sensitive_widgets['jobs_spinbutton'].set_sensitive(
-            self.get_int('limit-jobs'))
+            self.settings.get_int('limit-jobs'))
         
-        if self.get_string('output-mime-type') == 'gst-profile':
+        if self.settings.get_string('output-mime-type') == 'gst-profile':
             self.sensitive_widgets['resample_hbox'].set_sensitive(False)
             self.sensitive_widgets['force_mono'].set_sensitive(False)
         else:
@@ -858,9 +814,9 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.dialog.hide()
 
     def on_delete_warning_button_clicked(self, button):
-        self.set_int('delete-original', 0 if self.get_int('delete-original') else 1 )
+        self.set_int('delete-original', 0 if self.settings.get_int('delete-original') else 1 )
         delete_warning_button = self.builder.get_object("delete_warning_button")
-        if self.get_int('delete-original'):
+        if self.settings.get_int('delete-original'):
             self.set_int('delete-original', 1)
             self.wdialog.show_warning('', 'Deleting the original file is potentially destructive, mainly if the conversion is towards a lossy format.')
             delete_warning_button.set_stock_id('gtk-dialog-error')
@@ -904,7 +860,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.update_example()
 
     def get_subfolder_pattern(self):
-        index = self.get_int('subfolder-pattern-index')
+        index = self.settings.get_int('subfolder-pattern-index')
         if index < 0 or index >= len(self.subfolder_patterns):
             index = 0
         return self.subfolder_patterns[index][0]
@@ -918,7 +874,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.update_example()
 
     def get_basename_pattern(self):
-        index = self.get_int('name-pattern-index')
+        index = self.settings.get_int('name-pattern-index')
         if index < 0 or index >= len(self.basename_patterns):
             index = 0
         if self.basename_pattern.get_active() == len(self.basename_patterns)-1:
@@ -992,7 +948,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
 
     def on_hscale_vorbis_quality_value_changed(self, hscale):
         fquality = hscale.get_value()
-        if abs(self.get_float('vorbis-quality') - fquality/10.0) < 0.001:
+        if abs(self.settings.get_double('vorbis-quality') - fquality/10.0) < 0.001:
             return # already at right value
         self.set_float('vorbis-quality', fquality/10.0)
         self.vorbis_quality.set_active(-1)
@@ -1045,7 +1001,7 @@ class PreferencesDialog(GladeWindow, GConfStore):
             'abr': 'mp3-abr-quality',
             'vbr': 'mp3-vbr-quality',
         }
-        quality = self.get_int(keys[mode])
+        quality = self.settings.get_int(keys[mode])
 
         quality_to_preset = {
             'cbr': {64: 0, 96: 1, 128: 2, 192: 3, 256: 4, 320: 5},
@@ -1080,12 +1036,12 @@ class PreferencesDialog(GladeWindow, GConfStore):
             'abr': (64, 96, 128, 192, 256, 320),
             'vbr': (9, 7, 5, 3, 1, 0),
         }
-        mode = self.get_string('mp3-mode')
+        mode = self.settings.get_string('mp3-mode')
         self.set_int(keys[mode], quality[mode][combobox.get_active()])
         self.update_example()
 
     def on_hscale_mp3_value_changed(self, widget):
-        mode = self.get_string('mp3-mode')
+        mode = self.settings.get_string('mp3-mode')
         keys = {
             'cbr': 'mp3-cbr-quality',
             'abr': 'mp3-abr-quality',
@@ -1122,8 +1078,8 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.update_jobs()
 
     def update_jobs(self):
-        if self.get_int('limit-jobs'):
-            settings['jobs'] = self.get_int('number-of-jobs')
+        if self.settings.get_int('limit-jobs'):
+            settings['jobs'] = self.settings.get_int('number-of-jobs')
         else:
             settings['jobs'] = settings['max-jobs']
         self.set_sensitive()
