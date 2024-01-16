@@ -481,7 +481,6 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.force_mono = builder.get_object('force_mono')
 
         self.target_bitrate = None
-        self.convert_setting_from_old_version()
 
         self.sensitive_widgets = {}
         for name in self.sensitive_names:
@@ -496,18 +495,6 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.custom_filename.set_tooltip_text('\n'.join(tip))
         
         #self.resample_rate.connect('changed', self._on_resample_rate_changed)
-
-    def convert_setting_from_old_version(self):
-        """ try to convert previous settings"""
-
-        # vorbis quality was once stored as an int enum
-        try:
-            self.get_float('vorbis-quality')
-        except GObject.GError:
-            log('deleting old settings...')
-            [self.gconf.unset(self.path(k)) for k in list(self.defaults.keys())]
-
-        self.gconf.clear_cache()
 
     def set_widget_initial_values(self, builder):
 
@@ -777,7 +764,6 @@ class PreferencesDialog(GladeWindow, GConfStore):
         self.aprox_bitrate.set_markup(markup)
 
     def get_output_suffix(self):
-        self.gconf.clear_cache()
         output_type = self.get_string('output-mime-type')
         profile = self.get_string('audio-profile')
         profile_ext = audio_profiles_dict[profile][1] if profile else ''

@@ -20,40 +20,59 @@
 # USA
 
 from gi.repository import GConf
-
+from gi.repository import GLib
+import json
+import os
 
 class GConfStore(object):
 
     def __init__(self, root, defaults):
-        self.gconf = GConf.Client.get_default()
-        self.gconf.add_dir(root, GConf.ClientPreloadType.PRELOAD_ONELEVEL)
+        self.config_file = os.path.join(GLib.get_user_config_dir(), "soundconverter.json")
         self.root = root
         self.defaults = defaults
+        self.config = self._load()
 
-    def get_with_default(self, getter, key):
-        if self.gconf.get(self.path(key)) is None:
-            return self.defaults[key]
-        else:
-            return getter(self.path(key))
+    def get_with_default(self, key):
+        root = self.config[self.root]
+        return root.get(key, self.defaults[key])
 
     def get_int(self, key):
-        return self.get_with_default(self.gconf.get_int, key)
+        return self.get_with_default(key)
 
     def set_int(self, key, value):
-        self.gconf.set_int(self.path(key), value)
+        self._save(key, value)
 
     def get_float(self, key):
-        return self.get_with_default(self.gconf.get_float, key)
+        return self.get_with_default(key)
 
     def set_float(self, key, value):
-        self.gconf.set_float(self.path(key), value)
+        self._save(key, value)
 
     def get_string(self, key):
-        return self.get_with_default(self.gconf.get_string, key)
+        return self.get_with_default(key)
 
     def set_string(self, key, value):
-        self.gconf.set_string(self.path(key), value)
+        self._save(key, value)
 
     def path(self, key):
         assert key in self.defaults, 'missing gconf default:%s' % key
         return '%s/%s' % (self.root, key)
+    
+    def _load(self):
+        config = {}
+        if os.path.isfile(self.config_file):
+            with open(self.config_file, "r") as f:
+                config = json.load(f)
+        if not self.root in config:
+            config[self.root] = {}
+        return config
+    
+    def _save(self, key, value):
+        if not self.root in self.config:
+            self.config[root] = {}
+        root = self.config[self.root]
+        root[key] = value
+        self.config[self.root] = root
+        with open(self.config_file, "w") as f:
+            json.dump(self.config, f)
+
