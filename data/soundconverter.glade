@@ -605,6 +605,7 @@ Gautier Portet</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
+                        <signal name="activate" handler="on_select_all_activate" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -629,12 +630,12 @@ Gautier Portet</property>
                     <child>
                       <object class="GtkImageMenuItem" id="preferences">
                         <property name="label">gtk-preferences</property>
-                        <property name="use_action_appearance">False</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
-                        <signal name="activate" handler="on_preferences_activate" swapped="no"/>
+                        <signal name="activate" handler="on_prefs_button_clicked" swapped="no"/>
                       </object>
                       <object class="GtkImageMenuItem" id="delete_warning">
                         <property name="label">gtk-preferences</property>
@@ -643,6 +644,7 @@ Gautier Portet</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
+                        <signal name="activate" handler="on_prefs_button_clicked" swapped="no"/>
                       </object>
                     </child>
                   </object>
